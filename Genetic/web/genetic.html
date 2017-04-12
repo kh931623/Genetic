@@ -15,9 +15,9 @@
             class Config {
                 // set problem dimension, objective, crossover and mutation rate.
                 // for param[2]: 1 for Maximization and -1 for Minimization.
-                constructor(dim, param, obj) {
-                    if (arguments.length !== 3) {
-                        throw new Error("Constructor of Config class needs 3 arguments");
+                constructor(dim, param, penalty, obj) {
+                    if (arguments.length !== 4) {
+                        throw new Error("Constructor of Config class needs 4 arguments");
                     }
                     this.dim = dim;
                     this.obj = obj;
@@ -25,6 +25,8 @@
                     this.muta = param[1];
                     this.type = param[2];
                     this.crosstype = param[3];
+                    this.penalty = penalty;
+                    this.constraint = [];
                     // console.log(this.obj);
                 }
 
@@ -51,25 +53,33 @@
                     });
                 }
 
-                calculate(data) {
+                calculate(data, gen) {
                     if (this.obj !== undefined && data.length === this.dim) {
-                        return this.obj(data) * this.type;
+                        let ans = this.obj(data);
+                        let punish = 0;
+                        this.constraint.forEach((item) => {
+                            punish += Math.pow(item(data), this.penalty[2]);
+                        });
+                        return (ans + Math.pow(this.penalty[0] * gen, this.penalty[1]) * punish * -1) * this.type;
                     }
+                    throw new Error(`data's length must be equal to problem dimension.`);
                 }
 
                 getSetting() {
                     return this.setting;
                 }
+
+                addConstraint(c) {
+                    this.constraint.push(c);
+                }
             }
 
             class Chromosome {
-                constructor(setting, parent = null, type = null) {
+                constructor(setting, genes = null) {
                     this.setting = setting;
                     // crossover occur!
-                    if (parent) {
-                        if (!type) {
-                            throw new Error('You must provide the crossover type!');
-                        }
+                    if (genes) {
+                        this.genes = genes;
                     }
                     // Initialization
                     else {
@@ -113,6 +123,25 @@
                 getValue() {
                     return this.value;
                 }
+
+                crossover(other, type = null) {
+                    let range = this.genes.length - 5 + 1;
+                    // console.log(other);
+                    if (type) {
+                        let index = Math.floor(Math.random() * range + 5);
+                        return [
+                            this.genes.substring(0, index) + other.genes.substring(index),
+                            other.genes.substring(0, index) + this.genes.substring(index)
+                        ]
+                    }
+                    range /= 2;
+                    let index1 = Math.floor(Math.random() * range + 5);
+                    let index2 = Math.floor(Math.random() * range + 5 + range);
+                    return [
+                        this.genes.substring(0, index1) + other.genes.substring(index1, index2) + this.genes.substring(index2),
+                        other.genes.substring(0, index1) + this.genes.substring(index1, index2) + other.genes.substring(index2)
+                    ]
+                }
             }
 
             class Genetic {
@@ -120,41 +149,43 @@
                     this.pool = [];
                     this.config = config;
                     this.virtual = [];
-                    this.local = null;
+                    this.virtual.length = number;
+                    this.table = [];
+                    this.table.length = number;
                     this.number = number;
                     for (let i = 0; i < number; i++) {
                         this.pool.push(new Chromosome(config.getSetting()));
                     }
-                    this.evaluate();
+                    this.evaluate(0);
                 }
 
                 search(gen) {
                     for (let i = 0; i < gen; i++) {
                         // Selection and Reproduce
+                        // console.log(this.pool);
                         let newPool = [];
                         this.prepare();
                         while (newPool.length < this.number) {
                             let parent = this.selection();
                             if (Math.random() < this.config.cross) {
-                                newPool.push(new Chromosome(
-                                    this.config.getSetting(),
-                                    parent,
-                                    this.config.crosstype
-                                ));
-
-                                if (Math.random() < this.config.muta) {
-                                    newPool[newPool.length - 1].mutation();
+                                let spawn = parent[0].crossover(parent[1], this.config.crosstype);
+                                for (let j = 0; j < spawn.length; j++) {
+                                    newPool.push(new Chromosome(
+                                        this.config.getSetting(),
+                                        spawn[i]
+                                    ));
                                 }
                             }
                         }
                         this.pool = newPool;
-                        this.evaluate();
+                        this.mutation();
+                        this.evaluate(gen);
                     }
                 }
 
-                evaluate() {
+                evaluate(gen) {
                     this.pool.forEach((item) => {
-                        item.setValue(this.config.calculate(item.getData())) ;
+                        item.setValue(this.config.calculate(item.getData(), gen)) ;
                     });
 
                     let max = 0;
@@ -175,35 +206,101 @@
                 }
 
                 prepare() {
-
+                    // get every objective value
+                    for (let i = 0; i < this.pool.length; i++) {
+                        this.virtual[i] = this.pool[i].getValue();
+                    }
+                    // find the minimum out of them.
+                    let min = this.virtual[0];
+                    for (let i = 1; i < this.virtual.length; i++) {
+                        if (this.virtual[i] < min) {
+                            min = this.virtual[i];
+                        }
+                    }
+                    // minus virtual by min
+                    for (let i = 0; i < this.virtual.length; i++) {
+                        this.virtual[i] -= min;
+                    }
+                    // sum up virtual
+                    let sum = 0;
+                    this.virtual.forEach((item) => {
+                        sum += item;
+                    });
+                    // compute probability table
+                    let previous = 0;
+                    for (let i = 0; i < this.number; i++) {
+                        this.table[i] = {
+                            low: previous,
+                            up: previous + this.virtual[i] / sum
+                        }
+                        previous = this.table[i].up;
+                    }
+                    // console.log(this.table);
                 }
 
                 selection() {
+                    let parent = [];
+                    for (let i = 0; i < 2; i++) {
+                        let prob = Math.random();
+                        for (let j = 0; j < this.table.length; j++) {
+                            if (prob >= this.table[j].low && prob < this.table[j].up) {
+                                parent.push(this.pool[j]);
+                                break;
+                            }
+                        }
+                    }
+                    return parent;
+                }
 
+                mutation() {
+                    for (let i = 0; i < this.pool.length; i++) {
+                        if (Math.random() < this.config.muta) {
+                            this.pool[i].mutation();
+                        }
+                    }
+                }
+
+                result() {
+                    return [
+                        this.best * this.config.type,
+                        this.bestData
+                    ];
                 }
             }
 
             $(function () {
-                var config = new Config(2, [0.8, 0.1, 1], function (data) {
-                    return data[0] * data[0];
+                let param = [0.8, 0.01, 1, true];
+                let penalty = [0.5, 2, 2];
+                var config = new Config(2, param, penalty, function (data) {
+                    return Math.cos(Math.pow(data[0] - 1.14, 3)) - 10000 * Math.pow((data[1] * data[1] - data[0]), 2);
                 });
 
-                console.log(config.calculate([10]));
-                // var n = 10;
-                // console.log(n.toString(2));
-                // console.log(parseInt(n.toString(2), 2));
+                var config2 = new Config(2, param, penalty, function (data) {
+                    return -2 * data[0] * Math.sin(4 * data[0]) - 2.2 * data[1] * Math.sin(2 * data[1]) + 2;
+                });
 
                 config.setSubject([
                     [0, 2],
                     [0, 3]
                 ], 0.001);
 
-                console.log(config.getSetting());
-                console.log([1, 2, 3, 4].join(''));
+                config2.setSubject([
+                    [8, 10],
+                    [9, 12]
+                ], 0.0001);
 
-                var c = new Chromosome(config.getSetting());
-                console.log(c.getData());
-                console.log(c.genes.length);
+                config.addConstraint(function (data) {
+                    if (data[0] + data[1] < 1) {
+                        return Math.abs(1 - data[0] + data[1]);
+                    }
+                    return 0;
+                });
+
+                var g = new Genetic(config, 100);
+                g.search(500);
+                console.log(g);
+                console.log(g.result());
+
             });
         </script>
     </head>
