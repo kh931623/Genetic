@@ -3,6 +3,7 @@
     <head>
         <meta charset="utf-8">
         <title>Genetic Algorithm</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
         <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
         <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.0/jquery.min.js"></script>
         <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
@@ -157,11 +158,14 @@
                     for (let i = 0; i < number; i++) {
                         this.pool.push(new Chromosome(config.getSetting()));
                     }
+                    this.chartData = [
+                        ['Generation', 'Best Fitness']
+                    ];
                     this.evaluate(0);
                 }
 
                 search(gen) {
-                    for (let i = 0; i < gen; i++) {
+                    for (let i = 1; i <= gen; i++) {
                         // Selection and Reproduce
                         // console.log(this.pool);
                         let newPool = [];
@@ -180,7 +184,7 @@
                         }
                         this.pool = newPool;
                         this.mutation();
-                        this.evaluate(gen);
+                        this.evaluate(i);
                     }
                 }
 
@@ -204,6 +208,10 @@
                         this.best = this.pool[max].getValue();
                         this.bestData = this.pool[max].getData();
                     }
+
+                    this.chartData.push([
+                        gen, this.best * this.config.type
+                    ]);
                 }
 
                 prepare() {
@@ -292,51 +300,50 @@
 
                 config.addConstraint(function (data) {
                     if (data[0] + data[1] < 1) {
-                        return Math.abs(1 - data[0] + data[1]);
+                        return Math.abs(1 - (data[0] + data[1]));
                     }
                     return 0;
                 });
 
                 var g = new Genetic(config, 100);
-                g.search(500);
+                g.search(100);
                 console.log(g);
                 console.log(g.result());
 
+
                 function draw() {
                     google.charts.load('current', {'packages':['corechart']});
-google.charts.setOnLoadCallback(drawChart);
+                      google.charts.setOnLoadCallback(drawChart);
 
-function drawChart() {
-  var data = google.visualization.arrayToDataTable([
-    ['Year', 'Sales', 'Expenses'],
-    ['2004',  1000,      400],
-    ['2005',  1170,      460],
-    ['2006',  660,       1120],
-    ['2007',  1030,      540]
-  ]);
+                      function drawChart() {
+                        var data = google.visualization.arrayToDataTable(g.chartData);
 
-  var options = {
-    title: 'Company Performance',
-    curveType: 'function',
-    legend: { position: 'bottom' }
-  };
+                        var options = {
+                          title: 'Best objective value for every generation',
+                          hAxis: {title: 'Generations'},
+                          vAxis: {title: 'Objective Value'},
+                          legend: 'none'
+                        };
 
-  var chart = new google.visualization.LineChart(document.getElementById('curve_chart'));
+                        var chart = new google.visualization.ScatterChart(document.getElementById('chart'));
 
-  chart.draw(data, options);
-}
+                        chart.draw(data, options);
+                      }
                 }
+
+                draw();
             });
         </script>
     </head>
     <body>
-        <div class="container" >
+        <div class="container-fluid" >
             <div class="row">
                 <div class="col-sm-12">
                     <div id='chart'>
                     </div>
                 </div>
             </div>
+
         </div>
     </body>
 </html>
