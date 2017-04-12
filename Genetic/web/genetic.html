@@ -116,18 +116,39 @@
             }
 
             class Genetic {
-                constructor(config, num) {
+                constructor(config, number) {
                     this.pool = [];
                     this.config = config;
-                    for (let i = 0; i < num; i++) {
+                    this.virtual = [];
+                    this.local = null;
+                    this.number = number;
+                    for (let i = 0; i < number; i++) {
                         this.pool.push(new Chromosome(config.getSetting()));
                     }
                     this.evaluate();
                 }
 
-                search(num) {
-                    for (let i = 0; i < num; i++) {
+                search(gen) {
+                    for (let i = 0; i < gen; i++) {
+                        // Selection and Reproduce
+                        let newPool = [];
+                        this.prepare();
+                        while (newPool.length < this.number) {
+                            let parent = this.selection();
+                            if (Math.random() < this.config.cross) {
+                                newPool.push(new Chromosome(
+                                    this.config.getSetting(),
+                                    parent,
+                                    this.config.crosstype
+                                ));
 
+                                if (Math.random() < this.config.muta) {
+                                    newPool[newPool.length - 1].mutation();
+                                }
+                            }
+                        }
+                        this.pool = newPool;
+                        this.evaluate();
                     }
                 }
 
@@ -137,18 +158,28 @@
                     });
 
                     let max = 0;
-                    this.pool.forEach((item) => {
-                        if (item.getValue() > max) {
-                            max = item.getValue();
+                    for (let i = 1; i < this.pool.length; i++) {
+                        if (this.pool[i].getValue() > this.pool[max].getValue()) {
+                            max = i;
                         }
-                    });
+                    }
 
                     if (this.best === undefined) {
-                        this.best = max;
+                        this.best = this.pool[max].getValue();
+                        this.bestData = this.pool[max].getData();
                     }
-                    else if (max > this.best) {
-                        this.best = max;
+                    else if (this.pool[max].getValue() > this.best) {
+                        this.best = this.pool[max].getValue();
+                        this.bestData = this.pool[max].getData();
                     }
+                }
+
+                prepare() {
+
+                }
+
+                selection() {
+
                 }
             }
 
