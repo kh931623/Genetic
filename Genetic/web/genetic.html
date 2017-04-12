@@ -9,13 +9,14 @@
         <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
         <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
         <script>
+            // homemade base-2 log function
             function log2(x) {
                 return Math.log(x) / Math.log(2);
             }
 
             // problem definition!
             class Config {
-                // set problem dimension, objective, crossover and mutation rate.
+                // set problem dimension, objective, crossover and mutation rate, penalty parameters.
                 // for param[2]: 1 for Maximization and -1 for Minimization.
                 constructor(dim, param, penalty, obj) {
                     if (arguments.length !== 4) {
@@ -42,6 +43,7 @@
                         throw new Error('You must provide boundary for every decision variable');
                     }
                     this.sub = sub;
+                    // use setting to store lower bound, number of bits and actual step for every decision variable.
                     this.setting = [];
                     sub.forEach((item) => {
                         let range = item[1] - item[0];
@@ -53,8 +55,11 @@
                             step: range / (Math.pow(2, num) - 1)
                         });
                     });
+                    console.log('Setting: ');
+                    console.log(this.setting);
                 }
 
+                // calculating the objective value and plus penalty to it.
                 calculate(data, gen) {
                     if (this.obj !== undefined && data.length === this.dim) {
                         let ans = this.obj(data);
@@ -71,6 +76,7 @@
                     return this.setting;
                 }
 
+                // this interface is for add constraints to the problem
                 addConstraint(c) {
                     this.constraint.push(c);
                 }
@@ -110,6 +116,7 @@
                     return data;
                 }
 
+                // randomly choose one bit from this Chromosome to mutate
                 mutation() {
                     let range = this.genes.length;
                     let index = Math.floor(Math.random() * range);
@@ -118,17 +125,20 @@
                     this.genes = this.genes.substr(0, index) + temp + this.genes.substr(index + 1);
                 }
 
+                // set objective value
                 setValue(value) {
                     this.value = value;
                 }
 
+                // get objective value
                 getValue() {
                     return this.value;
                 }
 
+                // if type === true => one-points crossover
+                // else two-point crossover
                 crossover(other, type = null) {
                     let range = this.genes.length - 5 + 1;
-                    // console.log(other);
                     if (type) {
                         let index = Math.floor(Math.random() * range + 5);
                         return [
@@ -147,6 +157,7 @@
             }
 
             class Genetic {
+                // Initialization!
                 constructor(config, number) {
                     this.pool = [];
                     this.config = config;
@@ -164,10 +175,10 @@
                     this.evaluate(0);
                 }
 
+
                 search(gen) {
                     for (let i = 1; i <= gen; i++) {
                         // Selection and Reproduce
-                        // console.log(this.pool);
                         let newPool = [];
                         this.prepare();
                         while (newPool.length < this.number) {
@@ -188,6 +199,8 @@
                     }
                 }
 
+                // evaluate objective value for every Chromosome
+                // and check if we need to update the optimal
                 evaluate(gen) {
                     this.pool.forEach((item) => {
                         item.setValue(this.config.calculate(item.getData(), gen)) ;
@@ -214,6 +227,7 @@
                     ]);
                 }
 
+                // prepare some data for roulette-wheel
                 prepare() {
                     // get every objective value
                     for (let i = 0; i < this.pool.length; i++) {
@@ -244,9 +258,9 @@
                         }
                         previous = this.table[i].up;
                     }
-                    // console.log(this.table);
                 }
 
+                // select two Chromosome to be parent
                 selection() {
                     let parent = [];
                     for (let i = 0; i < 2; i++) {
@@ -261,6 +275,7 @@
                     return parent;
                 }
 
+                // check which Chromosome needs mutation.
                 mutation() {
                     for (let i = 0; i < this.pool.length; i++) {
                         if (Math.random() < this.config.muta) {
@@ -269,6 +284,7 @@
                     }
                 }
 
+                // return the optimal objective value and position.
                 result() {
                     return [
                         this.best * this.config.type,
@@ -283,20 +299,12 @@
                 var config = new Config(2, param, penalty, function (data) {
                     return Math.cos(Math.pow(data[0] - 1.14, 3)) - 10000 * Math.pow((data[1] * data[1] - data[0]), 2);
                 });
-
-                var config2 = new Config(2, param, penalty, function (data) {
-                    return -2 * data[0] * Math.sin(4 * data[0]) - 2.2 * data[1] * Math.sin(2 * data[1]) + 2;
-                });
+                
 
                 config.setSubject([
                     [0, 2],
                     [0, 3]
                 ], 0.001);
-
-                config2.setSubject([
-                    [8, 10],
-                    [9, 12]
-                ], 0.0001);
 
                 config.addConstraint(function (data) {
                     if (data[0] + data[1] < 1) {
@@ -310,6 +318,12 @@
                 console.log(g);
                 console.log(g.result());
 
+                let result = g.result();
+                $("#optimal").html(result[0]);
+                $("#x").html(result[1][0]);
+                $("#y").html(result[1][1]);
+                $("#result").show();
+
                 function drawLine() {
                     google.charts.load('current', {'packages':['corechart']});
                     google.charts.setOnLoadCallback(drawChart);
@@ -320,6 +334,8 @@
                         var options = {
                           title: 'Best objective value for every generation',
                           curveType: 'function',
+                          hAxis: {title: 'Generations'},
+                          vAxis: {title: 'Objective Value'}
                         };
 
                         var chart = new google.visualization.LineChart(document.getElementById('line'));
@@ -331,20 +347,43 @@
                 drawLine();
             });
         </script>
+        <style>
+            .font-red {
+                color: red;
+            }
+        </style>
     </head>
     <body>
-        <div class="container-fluid" >
-            <div class="row">
-                <div class="col-sm-12">
-                    <div id='chart'>
-                    </div>
+        <div class="container" >
+            <!-- <form >
+                <div class="form-group">
+                    <label for="problem" class="contorl-label ">Problem: </label>
+                    <select class="form-control" name="problem">
+                        <option value="0">Prolem 1</option>
+                        <option value="1">Prolem 2</option>
+                        <option value="2" class="font-red">Prolem 3</option>
+                        <option value="3">Prolem 4</option>
+                        <option value="4">Prolem 5</option>
+                        <option value="5">Prolem 6</option>
+                    </select>
                 </div>
-                <div class="col-sm-12">
-                    <div id='line'>
-                    </div>
+            </form> -->
+            <div id="result">
+                <div class="">
+                    <label for="">x: </label>
+                    <span id="x"></span>
+                </div>
+                <div class="">
+                    <label for="">y: </label>
+                    <span id="y"></span>
+                </div>
+                <div class="">
+                    <label for="">optimal: </label>
+                    <span id="optimal"></span>
                 </div>
             </div>
-
+            <div id='line'>
+            </div>
         </div>
     </body>
 </html>
