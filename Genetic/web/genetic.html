@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <title>Genetic Algorithm</title>
+        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+        <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.0/jquery.min.js"></script>
+        <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+        <script>
+            function log2(x) {
+                return Math.log(x) / Math.log(2);
+            }
+
+            // problem definition!
+            class Config {
+                // set problem dimension, objective, crossover and mutation rate.
+                // for param[2]: 1 for Maximization and -1 for Minimization.
+                constructor(dim, param, obj) {
+                    if (arguments.length !== 3) {
+                        throw new Error("Constructor of Config class needs 3 arguments");
+                    }
+                    this.dim = dim;
+                    this.obj = obj;
+                    this.cross = param[0];
+                    this.muta = param[1];
+                    this.type = param[2];
+                    this.crosstype = param[3];
+                    // console.log(this.obj);
+                }
+
+                // sub should be an array of array indicating boundaries of decision variables .
+                // presion indicates how deep you want to search the problem domain.
+                setSubject(sub, presion) {
+                    if (sub.length === undefined) {
+                        throw new Error('setSubject requires an array as its first argument.');
+                    }
+                    if (sub.length !== this.dim) {
+                        throw new Error('You must provide boundary for every decision variable');
+                    }
+                    this.sub = sub;
+                    this.setting = [];
+                    sub.forEach((item) => {
+                        let range = item[1] - item[0];
+                        let step = parseInt(range / presion);
+                        let num = Math.ceil(log2(step));
+                        this.setting.push({
+                            low: item[0],
+                            n: num,
+                            step: range / (Math.pow(2, num) - 1)
+                        });
+                    });
+                }
+
+                calculate(data) {
+                    if (this.obj !== undefined && data.length === this.dim) {
+                        return this.obj(data) * this.type;
+                    }
+                }
+
+                getSetting() {
+                    return this.setting;
+                }
+            }
+
+            class Chromosome {
+                constructor(setting, parent = null, type = null) {
+                    this.setting = setting;
+                    // crossover occur!
+                    if (parent) {
+                        if (!type) {
+                            throw new Error('You must provide the crossover type!');
+                        }
+                    }
+                    // Initialization
+                    else {
+                        let total = 0;
+                        setting.forEach((item) => {
+                            total += item.n;
+                        });
+                        let temp = [];
+                        for (let i = 0; i < total; i++) {
+                            temp.push(Math.round(Math.random()));
+                        }
+                        this.genes = temp.join('');
+                    }
+                }
+
+                // convert Chromosome into real value.
+                getData() {
+                    let data = [];
+                    let start = 0;
+                    this.setting.forEach((item) => {
+                        let now = this.genes.substr(start, item.n);
+                        let num = parseInt(now, 2);
+                        data.push(item.low + num * item.step);
+                        start = item.n;
+                    });
+                    return data;
+                }
+
+                mutation() {
+                    let range = this.genes.length;
+                    let index = Math.floor(Math.random() * range);
+
+                    let temp = this.genes.charAt(index) === '1' ? '0' : '1';
+                    this.genes = this.genes.substr(0, index) + temp + this.genes.substr(index + 1);
+                }
+
+                setValue(value) {
+                    this.value = value;
+                }
+
+                getValue() {
+                    return this.value;
+                }
+            }
+
+            class Genetic {
+                constructor(config, num) {
+                    this.pool = [];
+                    this.config = config;
+                    for (let i = 0; i < num; i++) {
+                        this.pool.push(new Chromosome(config.getSetting()));
+                    }
+                    this.evaluate();
+                }
+
+                search(num) {
+                    for (let i = 0; i < num; i++) {
+
+                    }
+                }
+
+                evaluate() {
+                    this.pool.forEach((item) => {
+                        item.setValue(this.config.calculate(item.getData())) ;
+                    });
+
+                    let max = 0;
+                    this.pool.forEach((item) => {
+                        if (item.getValue() > max) {
+                            max = item.getValue();
+                        }
+                    });
+
+                    if (this.best === undefined) {
+                        this.best = max;
+                    }
+                    else if (max > this.best) {
+                        this.best = max;
+                    }
+                }
+            }
+
+            $(function () {
+                var config = new Config(2, [0.8, 0.1, 1], function (data) {
+                    return data[0] * data[0];
+                });
+
+                console.log(config.calculate([10]));
+                // var n = 10;
+                // console.log(n.toString(2));
+                // console.log(parseInt(n.toString(2), 2));
+
+                config.setSubject([
+                    [0, 2],
+                    [0, 3]
+                ], 0.001);
+
+                console.log(config.getSetting());
+                console.log([1, 2, 3, 4].join(''));
+
+                var c = new Chromosome(config.getSetting());
+                console.log(c.getData());
+                console.log(c.genes.length);
+            });
+        </script>
+    </head>
+    <body>
+
+    </body>
+</html>
