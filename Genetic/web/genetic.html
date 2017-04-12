@@ -310,28 +310,25 @@
                 console.log(g);
                 console.log(g.result());
 
-
-                function draw() {
+                function drawLine() {
                     google.charts.load('current', {'packages':['corechart']});
-                      google.charts.setOnLoadCallback(drawChart);
+                    google.charts.setOnLoadCallback(drawChart);
 
-                      function drawChart() {
+                    function drawChart() {
                         var data = google.visualization.arrayToDataTable(g.chartData);
 
                         var options = {
                           title: 'Best objective value for every generation',
-                          hAxis: {title: 'Generations'},
-                          vAxis: {title: 'Objective Value'},
-                          legend: 'none'
+                          curveType: 'function',
                         };
 
-                        var chart = new google.visualization.ScatterChart(document.getElementById('chart'));
+                        var chart = new google.visualization.LineChart(document.getElementById('line'));
 
                         chart.draw(data, options);
-                      }
+                    }
                 }
 
-                draw();
+                drawLine();
             });
         </script>
     </head>
@@ -340,6 +337,10 @@
             <div class="row">
                 <div class="col-sm-12">
                     <div id='chart'>
+                    </div>
+                </div>
+                <div class="col-sm-12">
+                    <div id='line'>
                     </div>
                 </div>
             </div>
