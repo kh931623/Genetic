@@ -1,2 +1,2 @@
-# Genetic
-Genetic Algorithm
+# Optimization
+Implementation of Optimization algorithms
