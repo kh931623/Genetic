@@ -117,7 +117,7 @@
                     velocityCheck(vel) {
                         for (let i = 0; i < this.vmax.length; i++) {
                             if (Math.abs(vel[i]) > this.vmax[i]) {
-                                vel[i] = (vel[i] / Math.abs(vel[i])) * this.vmax;
+                                vel[i] = vel[i] > 0 ? this.vmax[i] : -this.vmax[i];
                             }
                         }
                     }
@@ -130,6 +130,7 @@
                         this.w = this.config.coeff[0];
                         this.c1 = this.config.coeff[1];
                         this.c2 = this.config.coeff[2];
+                        console.log(this.config.coeff);
                     }
 
                     initialize() {
@@ -206,6 +207,7 @@
                                     Math.random() * this.c1 * (ploc[i] - now[i]) +
                                     Math.random() * this.c2 * (this.gbestLoc[i] - now[i]);
                         }
+
                         // check if velocities is too big.
                         this.config.velocityCheck(vel);
                         // update current location
@@ -223,17 +225,15 @@
                     }
                 }
 
-                var con = new Config(2, 40, 1);
+                var con = new Config(2, 10, 1);
                 con.setObjective(function (data) {
                     return Math.cos(Math.pow(data[0] - 1.14, 3)) - 10000 * Math.pow((data[1] * data[1] - data[0]), 2);
                 });
                 con.setSubject([0, 0], [2, 3]);
 
                 var s = new Swarm(con);
-                for (let i = 0; i < 100; i++) {
-                    s.show();
-                    s.search(1);
-                }
+                s.search(100);
+                s.show();
             });
         </script>
     </head>
