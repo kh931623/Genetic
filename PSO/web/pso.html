@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <title>PSO</title>
+        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+        <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.0/jquery.min.js"></script>
+        <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+        <script type="text/javascript">
+            $(function () {
+                function myRand(l, u) {
+                    return Math.random() * (u - l) + l;
+                }
+
+                class Config {
+                    constructor(dim, number, type, coeff = [0.8, 2, 2]) {
+                        if (arguments.length < 3) {
+                            throw new Error('Constructor of Config class needs at least 3 arguments!');
+                        }
+                        // number of particles
+                        this.number = number;
+                        // number of problem dimension
+                        this.dim = dim;
+                        // w, c1, c2
+                        this.coeff = coeff;
+                        // array of constraints
+                        this.constraints = [];
+                        // type = 1 while Maximization
+                        // type = -1 while Minimization
+                        this.type = type;
+                    }
+
+                    /*
+                        lower: array, lower bound
+                        upper: array, upper bound
+                    */
+                    setSubject(lower, upper) {
+                        if (
+                            lower.length != this.dim ||
+                            upper.length != this.dim
+                        ) {
+                            throw new Error('length of lower and upper bound should fits the problem dimension!');
+                        }
+
+                        this.lower = lower;
+                        this.upper = upper;
+                        this.vmax = [];
+                        for (let i = 0; i < lower.length; i++) {
+                            this.vmax.push(0.3 * (upper[i] - lower[i]));
+                        }
+                    }
+
+                    // obj: function, takes an array as argument and return the objective value.
+                    setObjective(obj) {
+                        this.obj = obj;
+                    }
+
+                    // get the objective value at current location
+                    calculate(data) {
+                        if (data.length != this.dim) {
+                            throw new Error('number of decision variable should fit the problem dimension!');
+                        }
+                        if (this.obj === undefined) {
+                            throw new Error('Please set up the objective function first!');
+                        }
+                        return this.obj(data) * this.type;
+                    }
+
+                    // if current location violates the boundary
+                    // use bouncing strategy to make it right.
+                    boundaryCheck(data) {
+                        for (let i = 0; i < data.length; i++) {
+                            if (data[i] < this.lower[i]) {
+                                data[i] = this.upper[i] + (data[i] - this.lower[i]);
+                            }
+                            else if (data[i] > this.upper[i]) {
+                                data[i] = this.lower[i] + (data[i] - this.upper[i]);
+                            }
+                        }
+                    }
+
+                    // con: function, takes decision variables
+                    // and return if the constraint is violated at this location
+                    setConstraint(con) {
+                        this.constraints.push(con);
+                    }
+
+                    // use this interface to check if current location passes all the constraints.
+                    constraintCheck(data) {
+                        for (let i = 0; i < this.constraints.length; i++) {
+                            if (this.constraints[i](data)) {
+                                return false;
+                            }
+                        }
+                        return true;
+                    }
+
+                    // initialize a location based on boundary
+                    initLoc() {
+                        let temp = [];
+                        for (let i = 0; i < this.lower.length; i++) {
+                            temp.push(myRand(this.lower[i], this.upper[i]));
+                        }
+                        return temp;
+                    }
+
+                    // initialize the velocity based on vmax.
+                    initVel() {
+                        let temp = [];
+                        for (let i = 0; i < this.vmax.length; i++) {
+                            temp.push(Math.random() * this.vmax[i]);
+                        }
+                        return temp;
+                    }
+
+                    // check if current velocity violates the vmax.
+                    velocityCheck(vel) {
+                        for (let i = 0; i < this.vmax.length; i++) {
+                            if (Math.abs(vel[i]) > this.vmax[i]) {
+                                vel[i] = (vel[i] / Math.abs(vel[i])) * this.vmax;
+                            }
+                        }
+                    }
+                }
+
+                class Swarm {
+                    constructor(config) {
+                        this.config = config;
+                        this.initialize();
+                        this.w = this.config.coeff[0];
+                        this.c1 = this.config.coeff[1];
+                        this.c2 = this.config.coeff[2];
+                    }
+
+                    initialize() {
+                        // array of locations
+                        this.particles = [];
+                        // array of velocities.
+                        this.velocity = [];
+                        // array of fitness
+                        this.fitness = [];
+                        // array of pbest
+                        this.pbest = [];
+                        // array of pbest location
+                        this.pbestLoc = [];
+                        // gbest
+                        this.gbest = null;
+                        // gbest location
+                        this.gbestLoc = null;
+                        // initialize locations
+                        for (let i = 0; i < this.config.number; i++) {
+                            this.particles.push(this.config.initLoc());
+                            this.pbestLoc.push(this.particles[i].slice());
+                        }
+                        // initialize velocities
+                        for (let i = 0; i < this.config.number; i++) {
+                            this.velocity.push(this.config.initVel());
+                        }
+                        // initialize fitness and pbest.
+                        for (let i = 0; i < this.particles.length; i++) {
+                            this.fitness.push(this.config.calculate(this.particles[i]));
+                            this.pbest.push(this.fitness[i]);
+                        }
+                        // initialize gbest.
+                        let max = 0;
+                        for (let i = 1; i < this.pbest.length; i++) {
+                            if (this.pbest[i] > this.pbest[max]) {
+                                max = i;
+                            }
+                        }
+                        this.gbest = this.pbest[max];
+                        this.gbestLoc = this.pbestLoc[max].slice();
+                    }
+
+                    search(cycle) {
+                        for (let i = 0; i < cycle; i++) {
+                            for (let j = 0; j < this.particles.length; j++) {
+                                this.update(j);
+                                if (this.fitness[j] > this.pbest[j]) {
+                                    this.pbest[j] = this.fitness[j];
+                                    this.pbestLoc[j] = this.particles[j].slice();
+                                }
+                            }
+                            // update gbest
+                            let max = 0;
+                            for (let j = 1; j < this.pbest.length; j++) {
+                                if (this.pbest[j] > this.pbest[max]) {
+                                    max = j;
+                                }
+                            }
+                            if (this.pbest[max] > this.gbest) {
+                                this.gbest = this.pbest[max];
+                                this.gbestLoc = this.pbestLoc[max].slice();
+                            }
+                        }
+                    }
+
+                    // update velocity, location and fitness.
+                    update(index) {
+                        let vel = this.velocity[index];
+                        let ploc = this.pbestLoc[index];
+                        let now = this.particles[index];
+                        // update velocities for every dimension
+                        for (let i = 0; i < vel.length; i++) {
+                            vel[i] = this.w * vel[i] +
+                                    Math.random() * this.c1 * (ploc[i] - now[i]) +
+                                    Math.random() * this.c2 * (this.gbestLoc[i] - now[i]);
+                        }
+                        // check if velocities is too big.
+                        this.config.velocityCheck(vel);
+                        // update current location
+                        for (let i = 0; i < now.length; i++) {
+                            now[i] = now[i] + vel[i];
+                        }
+                        this.config.boundaryCheck(now);
+                        // update fitness
+                        this.fitness[index] = this.config.calculate(now);
+                    }
+
+                    show() {
+                        console.log(`Best location: ${this.gbestLoc}`);
+                        console.log(`Optimal Solution: ${this.gbest}`);
+                    }
+                }
+
+                var con = new Config(2, 40, 1);
+                con.setObjective(function (data) {
+                    return Math.cos(Math.pow(data[0] - 1.14, 3)) - 10000 * Math.pow((data[1] * data[1] - data[0]), 2);
+                });
+                con.setSubject([0, 0], [2, 3]);
+
+                var s = new Swarm(con);
+                for (let i = 0; i < 100; i++) {
+                    s.show();
+                    s.search(1);
+                }
+            });
+        </script>
+    </head>
+    <body>
+
+    </body>
+</html>
