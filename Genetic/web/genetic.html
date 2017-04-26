@@ -76,7 +76,7 @@
                     return this.setting;
                 }
 
-                // this interface is for add constraints to the problem
+                // this interface is for adding constraints to the problem
                 addConstraint(c) {
                     this.constraint.push(c);
                 }
@@ -299,7 +299,7 @@
                 var config = new Config(2, param, penalty, function (data) {
                     return Math.cos(Math.pow(data[0] - 1.14, 3)) - 10000 * Math.pow((data[1] * data[1] - data[0]), 2);
                 });
-                
+
 
                 config.setSubject([
                     [0, 2],

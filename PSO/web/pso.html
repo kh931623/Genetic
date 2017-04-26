@@ -6,6 +6,7 @@
         <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
         <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.0/jquery.min.js"></script>
         <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+        <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
         <script type="text/javascript">
             $(function () {
                 function myRand(l, u) {
@@ -28,6 +29,8 @@
                         // type = 1 while Maximization
                         // type = -1 while Minimization
                         this.type = type;
+                        // penalty coefficients
+                        this.penalty = [0.5, 2, 2];
                     }
 
                     /*
@@ -56,18 +59,22 @@
                     }
 
                     // get the objective value at current location
-                    calculate(data) {
+                    calculate(data, gen) {
                         if (data.length != this.dim) {
                             throw new Error('number of decision variable should fit the problem dimension!');
                         }
                         if (this.obj === undefined) {
                             throw new Error('Please set up the objective function first!');
                         }
-                        return this.obj(data) * this.type;
+                        let punish = 0;
+                        this.constraints.forEach((item) => {
+                            punish += Math.pow(item(data), this.penalty[2]);
+                        });
+                        return this.obj(data) * this.type - Math.pow(this.penalty[0] * gen, this.penalty[1]) * punish;
                     }
 
                     // if current location violates the boundary
-                    // use bouncing strategy to make it right.
+                    // use re-entering strategy to make it right.
                     boundaryCheck(data) {
                         for (let i = 0; i < data.length; i++) {
                             if (data[i] < this.lower[i]) {
@@ -80,19 +87,8 @@
                     }
 
                     // con: function, takes decision variables
-                    // and return if the constraint is violated at this location
-                    setConstraint(con) {
+                    addConstraint(con) {
                         this.constraints.push(con);
-                    }
-
-                    // use this interface to check if current location passes all the constraints.
-                    constraintCheck(data) {
-                        for (let i = 0; i < this.constraints.length; i++) {
-                            if (this.constraints[i](data)) {
-                                return false;
-                            }
-                        }
-                        return true;
                     }
 
                     // initialize a location based on boundary
@@ -126,10 +122,15 @@
                 class Swarm {
                     constructor(config) {
                         this.config = config;
+                        this.chartData = [
+                            ['Generation', 'Best Fitness']
+                        ];
                         this.initialize();
                         this.w = this.config.coeff[0];
                         this.c1 = this.config.coeff[1];
                         this.c2 = this.config.coeff[2];
+                        // prepare data for plotting
+
                         console.log(this.config.coeff);
                     }
 
@@ -159,7 +160,7 @@
                         }
                         // initialize fitness and pbest.
                         for (let i = 0; i < this.particles.length; i++) {
-                            this.fitness.push(this.config.calculate(this.particles[i]));
+                            this.fitness.push(this.config.calculate(this.particles[i], 0));
                             this.pbest.push(this.fitness[i]);
                         }
                         // initialize gbest.
@@ -171,12 +172,15 @@
                         }
                         this.gbest = this.pbest[max];
                         this.gbestLoc = this.pbestLoc[max].slice();
+                        this.chartData.push([
+                            0, this.gbest
+                        ]);
                     }
 
                     search(cycle) {
-                        for (let i = 0; i < cycle; i++) {
+                        for (let i = 1; i <= cycle; i++) {
                             for (let j = 0; j < this.particles.length; j++) {
-                                this.update(j);
+                                this.update(j, i);
                                 if (this.fitness[j] > this.pbest[j]) {
                                     this.pbest[j] = this.fitness[j];
                                     this.pbestLoc[j] = this.particles[j].slice();
@@ -193,11 +197,14 @@
                                 this.gbest = this.pbest[max];
                                 this.gbestLoc = this.pbestLoc[max].slice();
                             }
+                            this.chartData.push([
+                                i, this.gbest
+                            ]);
                         }
                     }
 
                     // update velocity, location and fitness.
-                    update(index) {
+                    update(index, gen) {
                         let vel = this.velocity[index];
                         let ploc = this.pbestLoc[index];
                         let now = this.particles[index];
@@ -216,7 +223,7 @@
                         }
                         this.config.boundaryCheck(now);
                         // update fitness
-                        this.fitness[index] = this.config.calculate(now);
+                        this.fitness[index] = this.config.calculate(now, gen);
                     }
 
                     show() {
@@ -230,14 +237,74 @@
                     return Math.cos(Math.pow(data[0] - 1.14, 3)) - 10000 * Math.pow((data[1] * data[1] - data[0]), 2);
                 });
                 con.setSubject([0, 0], [2, 3]);
+                con.addConstraint(function (data) {
+                    if (data[0] + data[1] < 1) {
+                        return Math.abs(1 - (data[0] + data[1]));
+                    }
+                    return 0;
+                });
 
                 var s = new Swarm(con);
                 s.search(100);
                 s.show();
+                $("#x").html(s.gbestLoc[0]);
+                $("#y").html(s.gbestLoc[1]);
+                $("#optimal").html(s.gbest);
+
+                function drawLine() {
+                    google.charts.load('current', {'packages':['corechart']});
+                    google.charts.setOnLoadCallback(drawChart);
+
+                    function drawChart() {
+                        var data = google.visualization.arrayToDataTable(s.chartData);
+
+                        var options = {
+                          title: 'Best objective value for every generation',
+                          curveType: 'function',
+                          hAxis: {title: 'Generations'},
+                          vAxis: {title: 'Objective Value'}
+                        };
+
+                        var chart = new google.visualization.LineChart(document.getElementById('line'));
+
+                        chart.draw(data, options);
+                    }
+                }
+                drawLine();
             });
         </script>
     </head>
     <body>
-
+        <div class="container" >
+            <!-- <form >
+                <div class="form-group">
+                    <label for="problem" class="contorl-label ">Problem: </label>
+                    <select class="form-control" name="problem">
+                        <option value="0">Prolem 1</option>
+                        <option value="1">Prolem 2</option>
+                        <option value="2" class="font-red">Prolem 3</option>
+                        <option value="3">Prolem 4</option>
+                        <option value="4">Prolem 5</option>
+                        <option value="5">Prolem 6</option>
+                    </select>
+                </div>
+            </form> -->
+            <div id="result">
+                <div class="">
+                    <label for="">x: </label>
+                    <span id="x"></span>
+                </div>
+                <div class="">
+                    <label for="">y: </label>
+                    <span id="y"></span>
+                </div>
+                <div class="">
+                    <label for="">optimal: </label>
+                    <span id="optimal"></span>
+                </div>
+            </div>
+            <div id='line'>
+            </div>
+        </div>
     </body>
 </html>
