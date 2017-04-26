@@ -173,6 +173,7 @@
                         ['Generation', 'Best Fitness']
                     ];
                     this.evaluate(0);
+                    this.bestGen = 0;
                 }
 
 
@@ -220,6 +221,7 @@
                     else if (this.pool[max].getValue() > this.best) {
                         this.best = this.pool[max].getValue();
                         this.bestData = this.pool[max].getData();
+                        this.bestGen = gen;
                     }
 
                     this.chartData.push([
@@ -288,7 +290,8 @@
                 result() {
                     return [
                         this.best * this.config.type,
-                        this.bestData
+                        this.bestData,
+                        this.bestGen
                     ];
                 }
             }

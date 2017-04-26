@@ -7,6 +7,7 @@
         <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.0/jquery.min.js"></script>
         <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
         <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+        <!-- <script src="./pso.js" charset="utf-8"></script> -->
         <script type="text/javascript">
             $(function () {
                 function myRand(l, u) {
@@ -149,6 +150,8 @@
                         this.gbest = null;
                         // gbest location
                         this.gbestLoc = null;
+                        // record the best generation
+                        this.bestGen = 0;
                         // initialize locations
                         for (let i = 0; i < this.config.number; i++) {
                             this.particles.push(this.config.initLoc());
@@ -196,6 +199,7 @@
                             if (this.pbest[max] > this.gbest) {
                                 this.gbest = this.pbest[max];
                                 this.gbestLoc = this.pbestLoc[max].slice();
+                                this.bestGen = i;
                             }
                             this.chartData.push([
                                 i, this.gbest
@@ -229,10 +233,11 @@
                     show() {
                         console.log(`Best location: ${this.gbestLoc}`);
                         console.log(`Optimal Solution: ${this.gbest}`);
+                        console.log(`Best Generation: ${this.bestGen}`);
                     }
                 }
 
-                var con = new Config(2, 10, 1);
+                var con = new Config(2, 100, 1);
                 con.setObjective(function (data) {
                     return Math.cos(Math.pow(data[0] - 1.14, 3)) - 10000 * Math.pow((data[1] * data[1] - data[0]), 2);
                 });
