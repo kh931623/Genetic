@@ -68,6 +68,10 @@ class GA_Config {
     addConstraint(c) {
         this.constraint.push(c);
     }
+
+    setThreshold(th) {
+        this.th = th;
+    }
 }
 
 class Chromosome {
@@ -162,6 +166,7 @@ class Genetic {
         ];
         this.evaluate(0);
         this.bestGen = 0;
+        this.conv = false;
     }
 
 
@@ -211,7 +216,10 @@ class Genetic {
             this.bestData = this.pool[max].getData();
             this.bestGen = gen;
         }
-
+        if (this.best > this.config.th && !this.conv) {
+            this.conGen = gen;
+            this.conv = true;
+        }
         this.chartData.push([
             gen, this.best * this.config.type
         ]);

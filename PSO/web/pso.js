@@ -106,6 +106,10 @@ class Config {
             }
         }
     }
+
+    setThreshold(th) {
+        this.th = th;
+    }
 }
 
 class Swarm {
@@ -119,9 +123,7 @@ class Swarm {
         this.w = this.config.coeff[0];
         this.c1 = this.config.coeff[1];
         this.c2 = this.config.coeff[2];
-
-
-        // console.log(this.config.coeff);
+        this.conv = false;
     }
 
     initialize() {
@@ -193,6 +195,10 @@ class Swarm {
             this.chartData.push([
                 i, this.gbest
             ]);
+            if (this.gbest > this.config.th && !this.conv) {
+                this.conGen = i;
+                this.conv = true;
+            }
         }
     }
 

@@ -42,6 +42,7 @@
                     }
                     return 0;
                 });
+                con.setThreshold(0.95);
 
                 // config for GA
                 var param = [0.8, 0.01, 1, true];
@@ -59,24 +60,31 @@
                     }
                     return 0;
                 });
+                config.setThreshold(0.95);
 
                 // dataholder
                 var pdata = [];
                 var gdata = [];
+                var p_conv = [];
+                var g_conv = [];
 
-                for (let i = 0; i < 20; i++) {
+                for (let i = 0; i < 50; i++) {
                     let s = new Swarm(con);
                     let g = new Genetic(config, 100);
                     s.search(100);
                     g.search(100);
                     gdata.push(g.result()[0]);
                     pdata.push(s.gbest);
+                    p_conv.push(s.conGen);
+                    g_conv.push(g.conGen);
                 }
 
                 var p_result = analysis(pdata);
                 var g_result = analysis(gdata);
                 console.log(p_result);
                 console.log(g_result);
+                console.log(analysis(p_conv));
+                console.log(analysis(g_conv));
             });
         </script>
     </head>
